@@ -1,6 +1,6 @@
 # FlightTracer
 
-Flight tracer is a Python package to fetch and process flight trace data from ADSBExchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3.
+FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3.
 
 ## Installation
 
@@ -13,11 +13,11 @@ pip install requests pandas geopandas boto3
 
 ## Usage
 
-Flight tracer can be used with either a list of aircraft IDs or a metadata URL that contains aircraft information. You can also configure AWS credentials if you wish to upload the output to S3. In addition, you can pass an AWS profile name if you have multiple sets of credentials in your environment.
+FlightTracer can be used with either a list of aircraft IDs or a metadata URL that contains aircraft information. You can also configure AWS credentials if you wish to upload the output to S3. In addition, you can pass an AWS profile name if you have multiple sets of credentials in your environment.
 
 ### Example
 
-Below is an example of how to use flight tracer:
+Below is an example of how to use FlightTracer:
 
 ~~~python
 #!/usr/bin/env python
@@ -53,7 +53,7 @@ tracer = FlightTracer(aircraft_ids=["a97753"], aws_profile=aws_profile)
 start = date(2025, 1, 28)
 end = date(2025, 2, 1)
 
-# Fetch raw flight trace data from ADSBExchange
+# Fetch raw flight trace data from ADS-B Exchange
 print("Fetching raw flight trace data...")
 raw_df = tracer.get_traces(start, end)
 if raw_df.empty:
@@ -91,7 +91,7 @@ else:
 
 ## Configuration
 
-Flight tracer supports the following configurations:
+FlightTracer supports the following configurations:
 
 - **Aircraft IDs or metadata URL**: Provide either a list of ICAO codes or a metadata URL to extract aircraft information.  
 - **AWS credentials or profile**: Pass AWS credentials as a dictionary, specify an AWS profile, or set them as environment variables.  
@@ -100,7 +100,7 @@ Flight tracer supports the following configurations:
 ## Notes
 
 - Ensure that your AWS credentials or profile are configured correctly if you wish to use the S3 upload feature.  
-- The package fetches data from ADSBExchange so the availability of data depends on the public API.
+- The package fetches data from ADS-B Exchange so the availability of data depends on the public API.
 
 ## License
 
