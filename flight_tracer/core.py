@@ -83,7 +83,7 @@ class FlightTracer:
                 # Compute the actual ping time by adding the offset
                 trace_df["ping_time"] = trace_df["timestamp"] + pd.to_timedelta(trace_df["time"], unit="s")
                 trace_df["icao"] = icao  # Add the aircraft id to the DataFrame
-                return trace_df.dropna()
+                return trace_df
         return None
 
 
@@ -124,7 +124,8 @@ class FlightTracer:
         df["timestamp_pst"] = df["point_time"].dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
         df["point_time_pst_clean"] = df["timestamp_pst"].dt.strftime("%H:%M:%S")
         df["flight_date_pst"] = df["timestamp_pst"].dt.strftime("%Y-%m-%d")
-        df["call_sign"] = pd.json_normalize(df['details'])['flight'].ffill().str.strip()
+        df["call_sign"] = pd.json_normalize(df['details'])['flight'].str.strip()
+        df["call_sign"] = df["call_sign"].ffill() # carry over the call sign where missing
         
         # Flatten the 'details' JSON column (drop alt_geom if present)
         details_df = pd.json_normalize(df["details"]).drop(columns=["alt_geom"], errors='ignore')
