@@ -2,6 +2,8 @@
 
 FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3. It also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools.
 
+This project is in the very early stages of development. 
+
 ## Installation
 
 1. Clone the repository or download the source code  
@@ -109,6 +111,35 @@ FlightTracer supports the following configurations:
 - Ensure that your AWS credentials or profile are configured correctly if you wish to use the S3 upload feature.  
 - The package fetches data from ADS-B Exchange so the availability of data depends on the public API.  
 - Flight leg detection is based on a configurable time gap threshold (default is 15 minutes). Adjust as needed for your data.
+
+## Roadmap for enhancements
+
+### Export additional geometries:
+
+- In addition to exporting point GeoJSON, generate a linestring GeoJSON that connects consecutive points in each leg. This would make it easier to visualize the overall flight path.
+Leg-specific exports:
+
+- Provide an option to split exports by flight leg so that if a day contains multiple flight legs (or if the user wants leg-specific outputs), each leg is written to its own file or stored in a separate structure.
+Enrich with external metadata:
+
+- Build tools to “hydrate” your flight data with additional aircraft metadata from external sources such as FAA, ICAO, or other databases. This could include aircraft type, operator information, age, etc.
+Package distribution:
+
+- Finalize the code structure (including tests, documentation, and a setup script) and publish the package to PyPI so others can install it via pip.
+
+### Enhanced documentation and examples:
+
+- Update the readme to include comprehensive, end-to-end examples for different scenarios (e.g., pulling all flights for a month for a given aircraft, processing a list of aircraft from a metadata URL, etc.).
+Include usage examples for the new features (linestring export, leg splitting, and metadata enrichment).
+Configurable thresholds and options:
+
+- Allow the user to adjust parameters like the time-gap threshold for determining new flight legs, output formats, or even which metadata fields to hydrate.
+
+### Performance and error handling improvements:
+
+- Add caching or parallel processing options to improve performance when fetching data over a long date range or from multiple aircraft.
+
+- Improve error handling to gracefully skip problematic dates or flights while logging the issues.
 
 ## License
 
