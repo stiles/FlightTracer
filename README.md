@@ -122,7 +122,7 @@ FlightTracer supports the following configurations:
 
 - Provide an option to split exports by flight leg so that if a day contains multiple flight legs (or if the user wants leg-specific outputs), each leg is written to its own file or stored in a separate structure.
 
-##### Enrich with external metadata:
+#### Enrich with external metadata:
 
 - Build tools to “hydrate” your flight data with additional aircraft metadata from external sources such as FAA, ICAO, or other databases. This could include aircraft type, operator information, age, etc.
 
