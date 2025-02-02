@@ -1,6 +1,6 @@
 # FlightTracer
 
-FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3.
+FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3. It also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools.
 
 ## Installation
 
@@ -25,9 +25,10 @@ Below is an example of how to use FlightTracer:
 example.py
 
 This example demonstrates the full capabilities of the FlightTracer package.
-It fetches real flight trace data, processes it (computing the continuous ping_time),
-saves the results locally with a filename that includes the ICAO code(s) and today's date,
-and optionally uploads the CSV and GeoJSON files to S3.
+It fetches real flight trace data, processes it (computing the continuous ping_time
+and inferring separate flight legs based on time gaps), saves the results locally
+with a filename that includes the ICAO code(s) and today's date, and optionally
+uploads the CSV and GeoJSON files to S3 using a specified AWS profile.
 """
 
 import os
@@ -62,11 +63,17 @@ else:
     print("Raw data sample:")
     print(raw_df.head())
 
-    # Process trace data into a GeoDataFrame (computing continuous ping_time in UTC)
+    # Process trace data into a GeoDataFrame (computing continuous ping_time in UTC
+    # and detecting flight leg changes based on time gaps). A new 'flight_leg' column is
+    # created that combines call_sign, flight_date, and leg_id.
     print("\nProcessing flight data into a GeoDataFrame...")
     gdf = tracer.process_flight_data(raw_df)
     print("Processed GeoDataFrame sample:")
     print(gdf.head())
+
+    # Optionally, inspect the unique flight legs detected in the data.
+    print("\nUnique flight legs detected:")
+    print(gdf["flight_leg"].unique())
 
     # Build dynamic filenames that include the ICAO code(s) and today's date
     icao_str = "_".join(tracer.aircraft_ids)
@@ -100,7 +107,8 @@ FlightTracer supports the following configurations:
 ## Notes
 
 - Ensure that your AWS credentials or profile are configured correctly if you wish to use the S3 upload feature.  
-- The package fetches data from ADS-B Exchange so the availability of data depends on the public API.
+- The package fetches data from ADS-B Exchange so the availability of data depends on the public API.  
+- Flight leg detection is based on a configurable time gap threshold (default is 15 minutes). Adjust as needed for your data.
 
 ## License
 
