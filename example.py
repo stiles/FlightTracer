@@ -12,6 +12,7 @@ uploads the CSV and GeoJSON files to S3 using a specified AWS profile.
 import os
 from datetime import date, datetime
 from flight_tracer import FlightTracer
+import geopandas as gpd
 
 # Two options:
 # 1. Use a specific AWS profile from your environment 
@@ -26,14 +27,14 @@ aws_creds = {
 
 # You can pass either aws_profile or aws_creds.
 # For example, to use the AWS profile:
-tracer = FlightTracer(aircraft_ids=["a97753"], aws_profile=aws_profile)
+tracer = FlightTracer(aircraft_ids=["0d086e"], aws_profile=aws_profile)
 
 # Or, if you prefer using credentials alone, comment the above line and use:
 # tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
 
 # Define the date range for which you want to fetch trace data
-start = date(2025, 1, 28)
-end = date(2025, 2, 1)
+start = date(2025, 1, 30)
+end = date(2025, 1, 31)
 
 # Fetch raw flight trace data from ADSBExchange
 print("Fetching raw flight trace data...")
@@ -55,16 +56,20 @@ else:
     print("\nUnique flight legs detected:")
     print(gdf["leg_id"].unique())
 
-    # Create dynamic filenames that include the ICAO code(s) and today's date
-    icao_str = "_".join(tracer.aircraft_ids)  # if more than one, join with underscores
+    # Build dynamic filenames that include the ICAO code(s) and today's date
+    icao_str = "_".join(tracer.aircraft_ids)
     date_str = datetime.today().strftime("%Y%m%d")
     csv_filename = f"data/flight_traces_{icao_str}_{date_str}.csv"
     geojson_filename = f"data/flight_traces_{icao_str}_{date_str}.geojson"
+    linestring_geojson_filename = f"data/flight_traces_lines_{icao_str}_{date_str}.geojson"
 
     # Save the processed data locally as CSV and GeoJSON
     gdf.to_csv(csv_filename, index=False)
     gdf.to_file(geojson_filename, driver="GeoJSON")
     print(f"\nSaved processed data locally as '{csv_filename}' and '{geojson_filename}'.")
+
+    # Export linestring geometry for each flight leg
+    tracer.export_linestring_geojson(gdf, linestring_geojson_filename)
 
     # Optionally upload the processed files to S3
     bucket_name = "stilesdata.com"  # replace with your bucket name
@@ -73,3 +78,14 @@ else:
     print("\nUploading files to S3 (if AWS credentials are configured)...")
     tracer.upload_to_s3(gdf, bucket_name, csv_object_name, geojson_object_name)
     print("Upload process completed.")
+
+    # Plot the points with a basemap
+    tracer.plot_flights(gdf, geometry_type='points', figsize=(12,10))
+
+    # If you already exported linestrings, you can use them directly.
+    # DCA flight that collided with an Army Black Hawk over the Potomac:
+    lines_gdf = gpd.read_file("data/flight_traces_lines_a97753_20250201.geojson")
+    lines_gdf_leg = lines_gdf.query('flight_leg == "JIA5342_2025-01-29_leg6"')
+    
+    fig_filename = "visuals/flight_map_a97753_20250201.png"
+    tracer.plot_flights(lines_gdf_leg, geometry_type='points', figsize=(12,10), fig_filename=fig_filename)

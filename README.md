@@ -1,8 +1,8 @@
 # FlightTracer
 
-FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and it offers an option to upload processed data as CSV and GeoJSON to Amazon S3. It also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools.
+FlightTracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and offers an option to upload processed data as CSV and GeoJSON to Amazon S3. FlightTracer also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools. In addition, the package also provides plotting capabilities with a basemap and an option to save the plot as a PNG.
 
-This project is in the very early stages of development. 
+This project is in the very early stages of development.
 
 ## Installation
 
@@ -31,11 +31,13 @@ It fetches real flight trace data, processes it (computing the continuous ping_t
 and inferring separate flight legs based on time gaps), saves the results locally
 with a filename that includes the ICAO code(s) and today's date, and optionally
 uploads the CSV and GeoJSON files to S3 using a specified AWS profile.
+It also shows how to generate a plot of the flight activity and save the plot as a PNG.
 """
 
 import os
 from datetime import date, datetime
 from flight_tracer import FlightTracer
+import geopandas as gpd
 
 # Option 1: Use explicit AWS credentials (via environment variables or directly)
 aws_credentials = {
@@ -46,7 +48,7 @@ aws_credentials = {
 # Option 2: Alternatively, use an AWS profile from your environment
 aws_profile = os.getenv("MY_AWS_PROFILE")  # e.g., "my_profile_name"
 
-# You can initialize FlightTracer with either explicit credentials or an AWS profile.
+# Initialize FlightTracer with either explicit credentials or an AWS profile.
 # For example, to use explicit credentials:
 # tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_credentials)
 # Or, to use an AWS profile:
@@ -72,7 +74,7 @@ else:
     gdf = tracer.process_flight_data(raw_df)
     print("Processed GeoDataFrame sample:")
     print(gdf.head())
-
+    
     # Optionally, inspect the unique flight legs detected in the data.
     print("\nUnique flight legs detected:")
     print(gdf["flight_leg"].unique())
@@ -88,14 +90,21 @@ else:
     gdf.to_file(geojson_filename, driver="GeoJSON")
     print(f"\nSaved processed data locally as '{csv_filename}' and '{geojson_filename}'.")
 
-    # Optionally, upload the processed files to S3
-    # (Replace 'your-bucket-name' with your actual S3 bucket name)
-    bucket_name = "your-bucket-name"
+    # Export linestring geometry for each flight leg
+    linestring_geojson_filename = f"data/flight_traces_lines_{icao_str}_{date_str}.geojson"
+    tracer.export_linestring_geojson(gdf, linestring_geojson_filename)
+
+    # Optionally upload the processed files to S3
+    bucket_name = "your-bucket-name"  # replace with your bucket name
     csv_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.csv"
     geojson_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.geojson"
     print("\nUploading files to S3 (if AWS credentials or profile are configured)...")
     tracer.upload_to_s3(gdf, bucket_name, csv_object_name, geojson_object_name)
     print("Upload process completed.")
+
+    # Plot the points with a basemap and optionally save the plot as a PNG
+    fig_filename = f"visuals/flight_map_{icao_str}_{date_str}.png"
+    tracer.plot_flights(gdf, geometry_type='points', figsize=(12,10), fig_filename=fig_filename)
 ~~~
 
 ## Configuration
@@ -110,40 +119,26 @@ FlightTracer supports the following configurations:
 
 - Ensure that your AWS credentials or profile are configured correctly if you wish to use the S3 upload feature.  
 - The package fetches data from ADS-B Exchange so the availability of data depends on the public API.  
-- Flight leg detection is based on a configurable time gap threshold (default is 15 minutes). Adjust as needed for your data.
+- Flight leg detection is based on a configurable time gap threshold (default is 15 minutes). Adjust as needed for your data.  
+- Plotting functionality includes an option to expand the plotted extent (via `pad_factor`) for broader context and to save the plot as a PNG.
 
-## Roadmap for enhancements
-
-#### Export additional geometries:
-
-- In addition to exporting point GeoJSON, generate a linestring GeoJSON that connects consecutive points in each leg. This would make it easier to visualize the overall flight path.
-
-#### Leg-specific exports:
-
-- Provide an option to split exports by flight leg so that if a day contains multiple flight legs (or if the user wants leg-specific outputs), each leg is written to its own file or stored in a separate structure.
+## Roadmap for Enhancements
 
 #### Enrich with external metadata:
-
-- Build tools to “hydrate” your flight data with additional aircraft metadata from external sources such as FAA, ICAO, or other databases. This could include aircraft type, operator information, age, etc.
+- Build tools to “hydrate” your flight data with additional aircraft metadata from external sources such as FAA, ICAO, or other databases (e.g., aircraft type, operator, age, etc.).
 
 #### Package distribution:
-
-- Finalize the code structure (including tests, documentation, and a setup script) and publish the package to PyPI so others can install it via pip.
+- Finalize the code structure (including tests, documentation, and a setup script) and publish the package to PyPI for installation via pip.
 
 #### Enhanced documentation and examples:
-
-- Update the readme to include comprehensive, end-to-end examples for different scenarios (e.g., pulling all flights for a month for a given aircraft, processing a list of aircraft from a metadata URL, etc.).
-Include usage examples for the new features (linestring export, leg splitting, and metadata enrichment).
+- Update the README with comprehensive, end-to-end examples for various scenarios (e.g., pulling all flights for a month of a particular aircraft, processing a list of aircraft from a metadata URL, etc.), including usage examples for linestring export, leg splitting, and metadata enrichment.
 
 #### Configurable thresholds and options:
-
-- Allow the user to adjust parameters like the time-gap threshold for determining new flight legs, output formats, or even which metadata fields to hydrate.
+- Allow users to adjust parameters like the time-gap threshold for determining new flight legs, output formats, and which metadata fields to hydrate.
 
 #### Performance and error handling improvements:
-
-- Add caching or parallel processing options to improve performance when fetching data over a long date range or from multiple aircraft.
-
-- Improve error handling to gracefully skip problematic dates or flights while logging the issues.
+- Add caching or parallel processing options to improve performance when fetching data over a long date range or for multiple aircraft.
+- Improve error handling to gracefully skip problematic dates or flights while logging issues.
 
 ## License
 

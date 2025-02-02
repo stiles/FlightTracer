@@ -15,7 +15,8 @@ setup(
         "requests",
         "pandas",
         "geopandas",
-        "boto3"
+        "boto3",
+        "contextily"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
