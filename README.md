@@ -117,13 +117,15 @@ FlightTracer supports the following configurations:
 ### Export additional geometries:
 
 - In addition to exporting point GeoJSON, generate a linestring GeoJSON that connects consecutive points in each leg. This would make it easier to visualize the overall flight path.
-Leg-specific exports:
+
+### Leg-specific exports:
 
 - Provide an option to split exports by flight leg so that if a day contains multiple flight legs (or if the user wants leg-specific outputs), each leg is written to its own file or stored in a separate structure.
 Enrich with external metadata:
 
 - Build tools to “hydrate” your flight data with additional aircraft metadata from external sources such as FAA, ICAO, or other databases. This could include aircraft type, operator information, age, etc.
-Package distribution:
+
+### Package distribution:
 
 - Finalize the code structure (including tests, documentation, and a setup script) and publish the package to PyPI so others can install it via pip.
 
@@ -131,7 +133,8 @@ Package distribution:
 
 - Update the readme to include comprehensive, end-to-end examples for different scenarios (e.g., pulling all flights for a month for a given aircraft, processing a list of aircraft from a metadata URL, etc.).
 Include usage examples for the new features (linestring export, leg splitting, and metadata enrichment).
-Configurable thresholds and options:
+
+### Configurable thresholds and options:
 
 - Allow the user to adjust parameters like the time-gap threshold for determining new flight legs, output formats, or even which metadata fields to hydrate.
 
