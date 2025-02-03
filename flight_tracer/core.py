@@ -112,7 +112,7 @@ class FlightTracer:
             print("No valid trace data collected.")
             return pd.DataFrame()
 
-    def process_flight_data(self, df, mapping_info=None):
+    def process_flight_data(self, df, mapping_info=None, filter_ground=True):
         """
         Process the raw trace data:
         - Compute point_time (UTC) and convert to US/Pacific.
@@ -120,9 +120,16 @@ class FlightTracer:
         - Normalize JSON details into columns.
         - Optionally map a flight column to additional info (like owner).
         - Create a combined flight_leg column.
+        - Optionally filter out ground-level data.
         - Return a GeoDataFrame.
-        
-        mapping_info: tuple(meta_df, key_col, value_col, target_col) for mapping.
+
+        Parameters:
+        df (DataFrame): Raw flight trace data.
+        mapping_info (tuple or None): If provided, maps flight details to additional metadata.
+        filter_ground (bool): If True (default), removes rows where altitude is "ground".
+
+        Returns:
+        GeoDataFrame: Processed flight data with spatial points.
         """
         # First sort and compute the continuous ping time
         df = df.sort_values(['timestamp', 'time'])
@@ -132,15 +139,10 @@ class FlightTracer:
         df["flight_date_pst"] = df["timestamp_pst"].dt.strftime("%Y-%m-%d")
         
         # --- Begin leg detection ---
-        # Re-sort by aircraft and continuous time so that each group is in order
         df = df.sort_values(['icao', 'point_time'])
-        # Compute the difference between successive pings within each aircraft and day
         df['time_diff'] = df.groupby(['icao', 'flight_date_pst'])['point_time'].diff()
-        # Define a threshold for a new leg – here we use 15 minutes
         threshold = pd.Timedelta(minutes=15)
-        # Flag rows where the gap exceeds the threshold (the first row in each group will be NaT, so fill it with 0)
         df['new_leg'] = (df['time_diff'] > threshold).fillna(0).astype(int)
-        # Create a leg id that increments each time a new leg is detected, starting at 1
         df['leg_id'] = df.groupby(['icao', 'flight_date_pst'])['new_leg'].cumsum() + 1
         # --- End leg detection ---
         
@@ -166,12 +168,14 @@ class FlightTracer:
                 "ground_speed", "heading", "lat", "lon", "icao", "call_sign", "leg_id", "flight_leg"]
         if mapping_info:
             cols.append(target_col)
-        # Only keep rows where altitude is not "ground"
-        flights = df[cols].query('altitude != "ground"').copy()
 
+        # Apply altitude filter based on user preference
+        if filter_ground:
+            df = df.query('altitude != "ground"').copy()
         
         # Create and return a GeoDataFrame with points from lon/lat
-        return gpd.GeoDataFrame(flights, geometry=gpd.points_from_xy(flights.lon, flights.lat))
+        return gpd.GeoDataFrame(df[cols], geometry=gpd.points_from_xy(df.lon, df.lat))
+
 
     def export_linestring_geojson(self, gdf, output_file):
         """

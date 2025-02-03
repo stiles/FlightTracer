@@ -33,7 +33,7 @@ tracer = FlightTracer(aircraft_ids=["0d086e"], aws_profile=aws_profile)
 # tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
 
 # Define the date range for which you want to fetch trace data
-start = date(2025, 1, 30)
+start = date(2025, 1, 28)
 end = date(2025, 1, 31)
 
 # Fetch raw flight trace data from ADSBExchange
@@ -49,6 +49,10 @@ else:
     # and to infer flight legs based on time gaps.
     print("\nProcessing flight data into a GeoDataFrame...")
     gdf = tracer.process_flight_data(raw_df)
+
+    # Optionally, retain ground points: 
+    # gdf = tracer.process_flight_data(raw_df, filter_ground=False)
+
     print("Processed GeoDataFrame sample:")
     print(gdf.head())
     
@@ -79,13 +83,6 @@ else:
     tracer.upload_to_s3(gdf, bucket_name, csv_object_name, geojson_object_name)
     print("Upload process completed.")
 
-    # Plot the points with a basemap
-    tracer.plot_flights(gdf, geometry_type='points', figsize=(12,10))
-
-    # If you already exported linestrings, you can use them directly.
-    # DCA flight that collided with an Army Black Hawk over the Potomac:
-    lines_gdf = gpd.read_file("data/flight_traces_lines_a97753_20250201.geojson")
-    lines_gdf_leg = lines_gdf.query('flight_leg == "JIA5342_2025-01-29_leg6"')
-    
-    fig_filename = "visuals/flight_map_a97753_20250201.png"
-    tracer.plot_flights(lines_gdf_leg, geometry_type='points', figsize=(12,10), fig_filename=fig_filename)
+    # Plot the points with a basemap and optionally save the plot as a PNG
+    fig_filename = f"visuals/flight_map_{icao_str}_{date_str}.png"
+    tracer.plot_flights(gdf, geometry_type='points', figsize=(12,10), fig_filename=fig_filename)
