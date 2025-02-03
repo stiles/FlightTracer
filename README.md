@@ -1,6 +1,6 @@
-# flight_tracer
+# Tracking ADS-B Exchange flights
 
-flight_tracer is a Python package to fetch and process flight trace data from ADS-B Exchange for any given aircraft. It supports fetching data for a single ICAO code or a list of codes and offers an option to upload processed data as CSV and GeoJSON to Amazon S3. flight_tracer also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools. In addition, the package also provides plotting capabilities with a basemap and an option to save the plot as a PNG.
+FlightTracer is a Python package to fetch and process aircraft trace data from ADS-B Exchange. It supports fetching data for a single ICAO code or a list of codes and offers an option to upload processed data as CSV and GeoJSON to Amazon S3. FlightTracer also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools. In addition, the package also provides plotting capabilities with a basemap and an option to save the plot as a PNG.
 
 This project is in the very early stages of development.
 
@@ -15,18 +15,18 @@ pip install requests pandas geopandas boto3
 
 ## Usage
 
-flight_tracer can be used with either a list of aircraft IDs or a metadata URL that contains aircraft information. You can also configure AWS credentials if you wish to upload the output to S3. In addition, you can pass an AWS profile name if you have multiple sets of credentials in your environment.
+FlightTracer can be used with either a list of aircraft IDs or a metadata URL that contains aircraft information. You can also configure AWS credentials if you wish to upload the output to S3. In addition, you can pass an AWS profile name if you have multiple sets of credentials in your environment.
 
 ### Example
 
-Below is an example of how to use flight_tracer:
+Below is an example of how to use FlightTracer:
 
 ~~~python
 #!/usr/bin/env python
 """
-example.py
+fetch_example.py
 
-This example demonstrates the full capabilities of the flight_tracer package.
+This example demonstrates the full capabilities of the FlightTracer package.
 It fetches real flight trace data, processes it (computing the continuous ping_time
 and inferring separate flight legs based on time gaps), saves the results locally
 with a filename that includes the ICAO code(s) and today's date, and optionally
@@ -36,7 +36,7 @@ It also shows how to generate a plot of the flight activity and save the plot as
 
 import os
 from datetime import date, datetime
-from flight_tracer import flight_tracer
+from flight_tracer import FlightTracer
 import geopandas as gpd
 
 # Option 1: Use explicit AWS credentials (via environment variables or directly)
@@ -52,7 +52,7 @@ aws_profile = os.getenv("MY_AWS_PROFILE")  # e.g., "my_profile_name"
 # For example, to use explicit credentials:
 # tracer = flight_tracer(aircraft_ids=["a97753"], aws_creds=aws_credentials)
 # Or, to use an AWS profile:
-tracer = flight_tracer(aircraft_ids=["a97753"], aws_profile=aws_profile)
+tracer = FlightTracer(aircraft_ids=["a97753"], aws_profile=aws_profile)
 
 # Define the date range for trace data
 start = date(2025, 1, 28)
