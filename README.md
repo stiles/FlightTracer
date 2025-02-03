@@ -90,6 +90,49 @@ tracer.upload_to_s3(gdf, bucket_name="your-bucket",
 
 ---
 
+## Outputs
+
+The example above would output a GeoJSON points file with features such as this one for each moment captured during the aircraft's flight. 
+
+**Notes:**
+
+- Values such as altitude and ground speed are raw and uncorrected. 
+- Use the `flight_leg` item to identify separate flights in a single calendar day. 
+- I live in Los Angeles so I convert the `point_time` value from UTC, or Zulu time, to Pacific Time. You can choose your own location.
+- This software is experimental and under active development so use with caution. 
+
+```json
+"features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "flight": "XAUCI",
+                "point_time": "2025-01-31T17:52:15.010",
+                "flight_date_pst": "2025-01-31",
+                "point_time_pst_clean": "09:52:15",
+                "altitude": 37000,
+                "ground_speed": 499.2,
+                "heading": 22.9,
+                "lat": 31.656967,
+                "lon": -81.21083,
+                "icao": "0d086e",
+                "call_sign": "XAUCI",
+                "leg_id": 1,
+                "flight_leg": "XAUCI_2025-01-31_leg1"
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    -81.21083,
+                    31.656967
+                ]
+            }
+        }
+    ]
+```
+
+---
+
 ## **Roadmap**
 🔹 **Metadata enrichment**: Integrate external aircraft metadata (FAA, ICAO, etc.)  
 🔹 **Performance improvements**: Parallel processing for large datasets  
@@ -98,7 +141,7 @@ tracer.upload_to_s3(gdf, bucket_name="your-bucket",
 
 ---
 
-## **CREDITS**
+## **Credits**
 Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for the data. If you use the service, consider [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing](https://www.adsbexchange.com/ways-to-join-the-exchange/) data to its network. 
 
 ## **License**
