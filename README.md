@@ -10,7 +10,7 @@ This project is in the early stages of development. Contributions and feedback w
 2. Install the required dependencies using pip
 
 ~~~bash
-pip install requests pandas geopandas boto3
+pip install requests pandas geopandas boto3 contextily matplotlib
 ~~~
 
 ## Usage
@@ -108,7 +108,7 @@ else:
 
 ## Configuration
 
-flight_tracer supports the following configurations:
+The package supports the following configurations:
 
 - **Aircraft IDs or metadata URL**: Provide either a list of ICAO codes or a metadata URL to extract aircraft information.  
 - **AWS credentials or profile**: Pass AWS credentials as a dictionary, specify an AWS profile, or set them as environment variables.  
