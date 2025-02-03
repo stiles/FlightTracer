@@ -2,7 +2,7 @@
 """
 example.py
 
-This example demonstrates the full capabilities of the FlightTracer package.
+This example demonstrates the full capabilities of the flight_tracer package.
 It fetches real flight trace data, processes it (computing the continuous ping_time
 and inferring separate flight legs based on time gaps), saves the results locally
 with a filename that includes the ICAO code(s) and today's date, and optionally

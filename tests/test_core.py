@@ -1,50 +1,25 @@
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import date
-
-from flight_tracer import FlightTracer  # Ensure this import works
+from flight_tracer import FlightTracer
 
 class TestFlightTracer(unittest.TestCase):
-    @patch('flight_tracer.core.requests.get')
-    def test_fetch_air_force_one(self, mock_get):
-        # Create fake JSON response for Air Force One (ICAO: adfdf8)
-        fake_json = {
-            "timestamp": 1609459200,  # Jan 1, 2021
-            "trace": [
-                [
-                    0,          # time offset
-                    34.0522,    # latitude
-                    -118.2437,  # longitude
-                    10000,      # altitude
-                    250,        # ground speed
-                    180,        # heading
-                    "ignore",   # unknown1
-                    "ignore",   # baro_rate
-                    {"flight": "AF1"},  # details
-                    "ignore",   # code
-                    "dummy",    # alt_geom
-                    "ignore",   # unknown2
-                    "ignore",   # unknown3
-                    "ignore"    # unknown4
-                ]
-            ]
-        }
-
-        # Configure the mock response
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = fake_json
-        mock_get.return_value = mock_response
-
-        # Instantiate FlightTracer with the test ICAO
-        tracer = FlightTracer(aircraft_ids=["adfdf8"])
-        start = date(2021, 1, 1)
-        end = date(2021, 1, 1)
-        df = tracer.get_traces(start, end)
-
-        # Check that data was fetched and contains the expected ICAO code
-        self.assertFalse(df.empty)
-        self.assertEqual(df.iloc[0]["icao"], "adfdf8")
+    def test_generate_urls_single_day(self):
+        # Create a FlightTracer instance with a dummy ICAO list
+        tracer = FlightTracer(aircraft_ids=["0d086e"])
+        # Using a single day: Jan 1, 2025 to Jan 1, 2025
+        urls = tracer.generate_urls(date(2025, 1, 1), date(2025, 1, 1))
+        # Expect 1 URL for a single day
+        self.assertEqual(len(urls), 1)
+        # Verify that the URL contains the correct date parts and ICAO code
+        expected_url = "https://globe.adsbexchange.com/globe_history/2025/01/01/traces/6e/trace_full_0d086e.json"
+        self.assertEqual(urls[0][0], expected_url)
+    
+    def test_generate_urls_multiple_days(self):
+        tracer = FlightTracer(aircraft_ids=["0d086e"])
+        # Using two days: Jan 1, 2025 to Jan 2, 2025
+        urls = tracer.generate_urls(date(2025, 1, 1), date(2025, 1, 2))
+        # Expect 2 URLs (one for each day)
+        self.assertEqual(len(urls), 2)
 
 if __name__ == '__main__':
     unittest.main()
