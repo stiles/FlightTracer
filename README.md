@@ -1,8 +1,8 @@
 # Tracking ADS-B Exchange flights
 
-FlightTracer is a Python package to fetch and process aircraft trace data from ADS-B Exchange. It supports fetching data for a single ICAO code or a list of codes and offers an option to upload processed data as CSV and GeoJSON to Amazon S3. FlightTracer also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools. In addition, the package also provides plotting capabilities with a basemap and an option to save the plot as a PNG.
+FlightTracer is a Python package to fetch and process aircraft trace data from ADS-B Exchange. It supports a single ICAO code or a list of codes — and it has an option to upload processed data as CSV and GeoJSON to Amazon S3. FlightTracer also detects separate flight legs based on significant time gaps and creates a combined flight leg identifier (call_sign, date, leg) for easier differentiation in GIS tools. In addition, the package also provides plotting capabilities with a basemap and an option to save the plot as a PNG.
 
-This project is in the very early stages of development.
+This project is in the early stages of development. Contributions and feedback welcome. 
 
 ## Installation
 
@@ -26,8 +26,7 @@ Below is an example of how to use FlightTracer:
 """
 fetch_example.py
 
-This example demonstrates the full capabilities of the FlightTracer package.
-It fetches real flight trace data, processes it (computing the continuous ping_time
+This example fetches real flight trace data, processes it (computing the continuous ping_time
 and inferring separate flight legs based on time gaps), saves the results locally
 with a filename that includes the ICAO code(s) and today's date, and optionally
 uploads the CSV and GeoJSON files to S3 using a specified AWS profile.
