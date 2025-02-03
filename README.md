@@ -5,13 +5,13 @@
 
 **FlightTracer** is a Python package for fetching, processing, and analyzing flight trace data from **ADS-B Exchange**. It supports a single ICAO code or a list of codes and offers options for exporting processed flight data to **CSV**, **GeoJSON**, and **Amazon S3**.
 
-### 🚀 Features:
-- Fetches real flight trace data from **ADS-B Exchange**.
-- Identifies **flight legs** by detecting time gaps in the data.
-- Saves processed flight data as **CSV and GeoJSON**.
-- Generates **Linestring GeoJSONs** for flight paths.
-- Provides **interactive plotting** of flight paths with basemaps.
-- Supports **AWS S3 uploads** for cloud storage.
+### :airplane: :helicopter: Features:
+- Fetches real flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/).
+- Seeks to identify flight legs by detecting time gaps in the data.
+- Saves processed flight data as CSV and GeoJSON.
+- Generates Linestring GeoJSONs for flight paths.
+- Provides plotting of flight paths with basemaps.
+- Supports AWS S3 uploads for cloud storage.
 
 ---
 
@@ -97,6 +97,9 @@ tracer.upload_to_s3(gdf, bucket_name="your-bucket",
 🔹 **Enhanced CLI tools**: Command-line interface for easy usage  
 
 ---
+
+## **CREDITS**
+Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for the data. If you use the service, consider [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing](https://www.adsbexchange.com/ways-to-join-the-exchange/) data to its network. 
 
 ## **License**
 This project is licensed under the **Creative Commons CC0 1.0 Universal** Public Domain Dedication.
