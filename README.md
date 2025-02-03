@@ -141,4 +141,12 @@ flight_tracer supports the following configurations:
 
 ## License
 
-This project is open source so feel free to modify and use it according to your needs.
+This project is licensed under the **Creative Commons CC0 1.0 Universal (CC0 1.0) Public Domain Dedication**.  
+
+This means that to the extent possible under law, the creator has waived all copyright and related or neighboring rights to this work. 
+
+You can copy, modify, distribute, and perform the work, even for commercial purposes, all without asking permission.
+
+For more details, refer to the full [CC0 1.0 Universal License](https://creativecommons.org/publicdomain/zero/1.0/legalcode).
+
+![CC0 Badge](https://licensebuttons.net/p/zero/1.0/88x31.png)
