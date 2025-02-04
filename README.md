@@ -203,7 +203,7 @@ The plot has different colors for the various legs that day to help you identify
 ---
 
 ## **Credits**
-Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for the data. If you use the service, consider [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing](https://www.adsbexchange.com/ways-to-join-the-exchange/) data to its network. 
+Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for the flight data. If you use the service, consider [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing](https://www.adsbexchange.com/ways-to-join-the-exchange/) data to its network. 
 
 ## **License**
 This project is licensed under the **Creative Commons CC0 1.0 Universal** Public Domain Dedication.
