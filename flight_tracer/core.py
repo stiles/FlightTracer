@@ -9,6 +9,8 @@ from io import BytesIO
 from shapely.geometry import LineString
 import matplotlib.pyplot as plt
 import contextily as ctx
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 
 class FlightTracer:
     # Default columns from the ADSB trace data (we’ll drop the extra ones)
@@ -212,11 +214,11 @@ class FlightTracer:
         gdf_lines.to_file(output_file, driver="GeoJSON")
         print(f"Linestring GeoJSON exported to {output_file}")
 
-
+        
 
     def plot_flights(self, gdf, geometry_type='points', figsize=(10,10), pad_factor=0.2, zoom=None, fig_filename=None):
         """
-        Plot flight activity from a GeoDataFrame with a basemap.
+        Plot flight activity from a GeoDataFrame with a basemap, coloring different flight legs distinctly.
         
         Parameters:
         gdf (GeoDataFrame): The GeoDataFrame containing flight trace points or lines.
@@ -225,52 +227,46 @@ class FlightTracer:
         pad_factor (float): Fraction by which to expand the bounds for additional context.
         zoom (int or None): Optional zoom level override for the basemap.
         fig_filename (str or None): If provided, the plot will be saved to this PNG file.
-        
-        This method reprojects the GeoDataFrame to EPSG:3857, computes a padded extent, plots
-        the data with a basemap, and optionally saves the figure.
         """
-        # Ensure the GeoDataFrame has a CRS; assume EPSG:4326 if not set.
         if gdf.crs is None:
             gdf = gdf.set_crs(epsg=4326)
-        # Reproject to Web Mercator for basemap compatibility.
         gdf_plot = gdf.to_crs(epsg=3857)
         
         fig, ax = plt.subplots(figsize=figsize)
         
-        # Plot based on the desired geometry type.
+        unique_legs = gdf_plot["flight_leg"].unique()
+        cmap = plt.get_cmap("tab10", len(unique_legs))
+        norm = mcolors.Normalize(vmin=0, vmax=len(unique_legs))
+        colors = {leg: cmap(norm(i)) for i, leg in enumerate(unique_legs)}
+        
         if geometry_type == 'points':
-            gdf_plot.plot(ax=ax, marker='o', color='#f18851', markersize=5, label='Flight points')
+            for leg, group in gdf_plot.groupby("flight_leg"):
+                group.plot(ax=ax, marker='o', color=colors[leg], markersize=5, label=leg)
         elif geometry_type == 'lines':
-            gdf_plot.plot(ax=ax, linewidth=2, color='#f18851', label='Flight path')
+            for leg, group in gdf_plot.groupby("flight_leg"):
+                group.plot(ax=ax, linewidth=2, color=colors[leg], label=leg)
         else:
             raise ValueError("geometry_type must be either 'points' or 'lines'")
         
-        # Get the total bounds: [xmin, ymin, xmax, ymax]
         xmin, ymin, xmax, ymax = gdf_plot.total_bounds
-        # Calculate padding based on the pad_factor.
         x_pad = (xmax - xmin) * pad_factor
         y_pad = (ymax - ymin) * pad_factor
         extent = [xmin - x_pad, ymin - y_pad, xmax + x_pad, ymax + y_pad]
         
-        # Set the axis limits to the padded extent.
         ax.set_xlim(extent[0], extent[2])
         ax.set_ylim(extent[1], extent[3])
         
-        # Add a basemap using CartoDB Positron.
         if zoom is not None:
             ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, zoom=zoom, reset_extent=False)
         else:
             ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron, reset_extent=False)
         
-        # Clean up the plot aesthetics.
         ax.set_axis_off()
         ax.legend()
         plt.tight_layout()
         plt.title("Flight sketch")
         
-        # If a figure filename is provided, save the figure as a PNG.
         if fig_filename:
-            # Create the directory if it doesn't exist.
             os.makedirs(os.path.dirname(fig_filename), exist_ok=True)
             plt.savefig(fig_filename, dpi=300, bbox_inches='tight')
             print(f"Figure saved as {fig_filename}")

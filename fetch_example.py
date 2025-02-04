@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-example.py
+fetch_example.py
 
 This example demonstrates the full capabilities of the flight_tracer package.
 It fetches real flight trace data, processes it (computing the continuous ping_time
@@ -27,14 +27,14 @@ aws_creds = {
 
 # You can pass either aws_profile or aws_creds.
 # For example, to use the AWS profile:
-tracer = FlightTracer(aircraft_ids=["0d086e"], aws_profile=aws_profile)
+tracer = FlightTracer(aircraft_ids=["a2644a"], aws_profile=aws_profile)
 
 # Or, if you prefer using credentials alone, comment the above line and use:
 # tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
 
 # Define the date range for which you want to fetch trace data
-start = date(2025, 1, 28)
-end = date(2025, 1, 31)
+start = date(2025, 2, 4)
+end = date(2025, 2, 4)
 
 # Fetch raw flight trace data from ADSBExchange
 print("Fetching raw flight trace data...")

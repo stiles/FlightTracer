@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="flight_tracer",
-    version="0.1.0",
+    version="0.1.1",
     author="Matt Stiles",
     author_email="mattstiles@gmail.com",
     description="A package to fetch, process, store and plot aircraft trace data from ADS-B Exchange.",
