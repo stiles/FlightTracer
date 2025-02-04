@@ -195,10 +195,11 @@ The plot has different colors for the various legs that day to help you identify
 ---
 
 ## **Roadmap**
-🔹 **Metadata enrichment**: Integrate external aircraft metadata (FAA, ICAO, etc.)  
-🔹 **Performance improvements**: Parallel processing for large datasets  
-🔹 **Advanced plotting**: More customizable visualizations  
-🔹 **Enhanced CLI tools**: Command-line interface for easy usage  
+🔹 **Data integrity**: Better testing and documentation (flight legs, datetime handling, etc.)
+🔹 **Enhanced CLI tools**: Command-line interface for easy usage
+🔹 **Metadata enrichment**: Integrate external aircraft metadata (FAA, ICAO, etc.)
+🔹 **Advanced plotting**: More customizable visualizations
+🔹 **Performance improvements**: Parallel processing for large datasets
 
 ---
 
