@@ -52,23 +52,43 @@ class FlightTracer:
         else:
             self.s3_client = None
 
-    def generate_urls(self, start_date, end_date):
-        """Generate ADSBExchange URLs for each aircraft over a date range."""
-        base_url = "https://globe.adsbexchange.com/globe_history/"
-        delta = timedelta(days=1)
+    def generate_urls(self, start_date, end_date, recent=False):
+        """Generate ADSBExchange URLs for each aircraft.
+        
+        Parameters:
+        - start_date (date): Start of the date range.
+        - end_date (date): End of the date range.
+        - recent (bool): If True, fetches only the most recent trace.
+
+        Returns:
+        - List of tuples (url, icao)
+        """
+        base_url_recent = "https://globe.adsbexchange.com/data/traces/"
+        base_url_historical = "https://globe.adsbexchange.com/globe_history/"
+        
         urls = []
         for icao in self.aircraft_ids:
-            # Use last 2 chars to build the URL path
             icao_suffix = icao[-2:]
-            current_date = start_date
-            while current_date <= end_date:
-                year = current_date.strftime("%Y")
-                month = current_date.strftime("%m")
-                day = current_date.strftime("%d")
-                url = f"{base_url}{year}/{month}/{day}/traces/{icao_suffix}/trace_full_{icao}.json"
+
+            if recent:
+                # Use the single, fixed "recent" URL
+                url = f"{base_url_recent}{icao_suffix}/trace_full_{icao}.json"
                 urls.append((url, icao))
-                current_date += delta
+            else:
+                # Generate historical URLs with date structure
+                delta = timedelta(days=1)
+                current_date = start_date
+                while current_date <= end_date:
+                    year = current_date.strftime("%Y")
+                    month = current_date.strftime("%m")
+                    day = current_date.strftime("%d")
+                    url = f"{base_url_historical}{year}/{month}/{day}/traces/{icao_suffix}/trace_full_{icao}.json"
+                    urls.append((url, icao))
+                    current_date += delta
+
         return urls
+
+
 
     def fetch_trace_data(self, url, icao):
         """Fetch and return a trace DataFrame from a given URL."""
@@ -92,27 +112,39 @@ class FlightTracer:
         return None
 
 
-    def get_traces(self, start_date, end_date):
+    def get_traces(self, start_date=None, end_date=None, recent=False):
         """
-        Loop through generated URLs to fetch trace data.
-        Returns a concatenated DataFrame of all valid traces.
+        Fetch trace data from ADSBExchange.
+
+        Parameters:
+        - start_date (date or None): Start date for fetching data. Ignored if recent=True.
+        - end_date (date or None): End date for fetching data. Ignored if recent=True.
+        - recent (bool): If True, fetches the most recent trace instead of historical data.
+
+        Returns:
+        - DataFrame containing all collected flight traces.
         """
-        urls = self.generate_urls(start_date, end_date)
+        urls = self.generate_urls(start_date, end_date, recent=recent)
         traces = []
+        
         for url, icao in urls:
+            print(f"Fetching data from: {url}")
             trace_df = self.fetch_trace_data(url, icao)
+            
             if trace_df is not None and not trace_df.empty:
                 traces.append(trace_df)
-                # Print a friendly message using the first timestamp
                 ts = pd.to_datetime(trace_df["timestamp"].iloc[0]).strftime('%b %-d, %Y')
-                print(f"Yay! {icao} flew on {ts}.")
+                print(f"✅ Data found for {icao}.")
             else:
-                print(f"No data for {icao} on {url}.")
+                print(f"❌ No data for {icao} on {url}.")
+        
         if traces:
             return pd.concat(traces).reset_index(drop=True).sort_values("timestamp")
         else:
             print("No valid trace data collected.")
             return pd.DataFrame()
+
+
 
     def process_flight_data(self, df, mapping_info=None, filter_ground=True):
         """
@@ -166,7 +198,7 @@ class FlightTracer:
             df[target_col] = df["flight"].map(mapping)
         
         # Select a common set of columns, explicitly including point_time for later sorting.
-        cols = ["flight", "point_time", "flight_date_pst", "point_time_pst_clean", "altitude",
+        cols = ["point_time", "flight_date_pst", "point_time_pst_clean", "altitude",
                 "ground_speed", "heading", "lat", "lon", "icao", "call_sign", "leg_id", "flight_leg"]
         if mapping_info:
             cols.append(target_col)

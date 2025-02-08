@@ -27,18 +27,24 @@ aws_creds = {
 
 # You can pass either aws_profile or aws_creds.
 # For example, to use the AWS profile:
-tracer = FlightTracer(aircraft_ids=["a2644a"], aws_profile=aws_profile)
+tracer = FlightTracer(aircraft_ids=["ae4af6"], aws_profile=aws_profile)
 
 # Or, if you prefer using credentials alone, comment the above line and use:
 # tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
 
 # Define the date range for which you want to fetch trace data
 start = date(2025, 2, 4)
-end = date(2025, 2, 4)
+end = date(2025, 2, 6)
 
 # Fetch raw flight trace data from ADSBExchange
 print("Fetching raw flight trace data...")
-raw_df = tracer.get_traces(start, end)
+
+# Fetch all traces in start/end dates
+raw_df = tracer.get_traces(start, end, recent=False)
+
+# Fetch only the most recent trace
+# raw_df = tracer.get_traces(recent=True)
+
 if raw_df.empty:
     print("No trace data was fetched.")
 else:

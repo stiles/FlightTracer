@@ -5,6 +5,8 @@ __pycache__/
 
 # local
 DEPLOY.md
+fetch_recent_flight.py
+data/test/
 
 # C extensions
 *.so
