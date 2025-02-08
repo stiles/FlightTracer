@@ -16,7 +16,6 @@ import geopandas as gpd
 
 # Two options:
 # 1. Use a specific AWS profile from your environment 
-# If you have multiple AWS accounts
 aws_profile = os.getenv("MY_PERSONAL_PROFILE")
 
 # 2. Use standard AWS credentials from your environment
@@ -26,24 +25,19 @@ aws_creds = {
 }
 
 # You can pass either aws_profile or aws_creds.
-# For example, to use the AWS profile:
-tracer = FlightTracer(aircraft_ids=["ae4af6"], aws_profile=aws_profile)
-
-# Or, if you prefer using credentials alone, comment the above line and use:
-# tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
+# Example: using the AWS profile
+tracer = FlightTracer(aircraft_ids=["A11F59"], aws_profile=aws_profile)
 
 # Define the date range for which you want to fetch trace data
-start = date(2025, 2, 4)
-end = date(2025, 2, 6)
+start = date(2025, 2, 7)
+end = date(2025, 2, 8)
+
+# Set export format: "geojson" or "shp"
+export_format = "geojson"  # Change to "geojson" if needed
 
 # Fetch raw flight trace data from ADSBExchange
 print("Fetching raw flight trace data...")
-
-# Fetch all traces in start/end dates
 raw_df = tracer.get_traces(start, end, recent=False)
-
-# Fetch only the most recent trace
-# raw_df = tracer.get_traces(recent=True)
 
 if raw_df.empty:
     print("No trace data was fetched.")
@@ -56,9 +50,6 @@ else:
     print("\nProcessing flight data into a GeoDataFrame...")
     gdf = tracer.process_flight_data(raw_df)
 
-    # Optionally, retain ground points: 
-    # gdf = tracer.process_flight_data(raw_df, filter_ground=False)
-
     print("Processed GeoDataFrame sample:")
     print(gdf.head())
     
@@ -69,24 +60,22 @@ else:
     # Build dynamic filenames that include the ICAO code(s) and today's date
     icao_str = "_".join(tracer.aircraft_ids)
     date_str = datetime.today().strftime("%Y%m%d")
-    csv_filename = f"data/flight_traces_{icao_str}_{date_str}.csv"
-    geojson_filename = f"data/flight_traces_{icao_str}_{date_str}.geojson"
-    linestring_geojson_filename = f"data/flight_traces_lines_{icao_str}_{date_str}.geojson"
+    base_path = f"data/flight_traces_{icao_str}_{date_str}"
 
-    # Save the processed data locally as CSV and GeoJSON
+    # Save the processed data locally as CSV
+    csv_filename = f"{base_path}.csv"
     gdf.to_csv(csv_filename, index=False)
-    gdf.to_file(geojson_filename, driver="GeoJSON")
-    print(f"\nSaved processed data locally as '{csv_filename}' and '{geojson_filename}'.")
+    print(f"\nSaved processed data locally as '{csv_filename}'.")
 
-    # Export linestring geometry for each flight leg
-    tracer.export_linestring_geojson(gdf, linestring_geojson_filename)
+    # Export flight data in the selected format
+    tracer.export_flight_data(gdf, base_path, export_format=export_format)
 
     # Optionally upload the processed files to S3
-    bucket_name = "stilesdata.com"  # replace with your bucket name
+    bucket_name = "stilesdata.com"  # Replace with your bucket name
     csv_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.csv"
-    geojson_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.geojson"
+    
     print("\nUploading files to S3 (if AWS credentials are configured)...")
-    tracer.upload_to_s3(gdf, bucket_name, csv_object_name, geojson_object_name)
+    tracer.upload_to_s3(gdf, bucket_name, csv_object_name, f"{base_path}.{export_format}")
     print("Upload process completed.")
 
     # Plot the points with a basemap and optionally save the plot as a PNG

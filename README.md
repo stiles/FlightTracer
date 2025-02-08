@@ -1,35 +1,41 @@
-# FlightTracer: Tracking ADS-B Exchange flights
+# FlightTracer: tracking ADS-B Exchange flights
 
 [![PyPI version](https://img.shields.io/pypi/v/flight-tracer.svg)](https://pypi.org/project/flight-tracer/)
 [![License: CC0-1.0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
 
-**FlightTracer** is a Python package for fetching, processing, and analyzing flight trace data from **ADS-B Exchange**. It supports a single ICAO code or a list of codes and offers options for exporting processed flight data to **CSV**, **GeoJSON**, and **Amazon S3**.
+**FlightTracer** is a Python package for fetching, processing, storing and plotting flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/). It provides tools for managing flight data and offers flexible options for users. The project is new and under active development.
 
-### Features:
-- Fetches real flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/).
-- Seeks to identify flight legs by detecting time gaps in the data.
-- Saves processed flight data as CSV and GeoJSON.
-- Generates Linestring GeoJSONs for flight paths.
-- Provides plotting of flight paths with basemaps.
-- Supports AWS S3 uploads for cloud storage.
+---
+
+## **Features**
+
+- Fetches flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/)
+- Identifies flight legs by detecting time gaps and handling Zulu day transitions
+- Converts raw flight trace data into GeoDataFrames for easy analysis
+- Saves processed flight data in CSV, GeoJSON or shapefile formats
+- Visualizes flight paths with customizable basemaps and clear leg differentiation
+- Supports AWS S3 uploads for cloud storage
+- Offers customization options for file formats and filtering
 
 ---
 
 ## **Installation**
+
 FlightTracer is available on **PyPI** and can be installed using:
 
 ```bash
 pip install flight-tracer
 ```
 
-Alternatively, you can install the latest development version from GitHub:
+Alternatively, install the latest development version from GitHub:
 
 ```bash
 pip install git+https://github.com/stiles/flight_tracer.git
 ```
 
 ### **Dependencies**
-FlightTracer requires the following packages:
+
+FlightTracer requires the following Python packages:
 - `requests`
 - `pandas`
 - `geopandas`
@@ -38,111 +44,135 @@ FlightTracer requires the following packages:
 - `contextily`
 - `shapely`
 
-These will be installed automatically with `pip`.
+These dependencies will be installed automatically with `pip`.
 
 ---
 
 ## **Usage**
-FlightTracer can be used with **a list of aircraft IDs** or **a metadata URL** containing aircraft information.
 
-### **Fetch example**
-The following example script fetches all flights made by Skywest `N253SY`, an Embraer ERJ-170, with the ICAO code `a2644a` on Feb 4, 2024. The ICAO code is a url parameter visible with flight traces [are selected](https://globe.adsbexchange.com/?icao=a2644a) on ADS-B Exchange. Add the date and aircraft code to modify the script.
+FlightTracer is designed for flexibility and ease of use. You can track flights using a list of ICAO aircraft IDs or metadata from a URL. The package provides options to customize output formats, filter ground data and configure AWS S3 uploads.
+
+### **Basic example**
+
+Here’s a simple example to fetch and process flight data:
 
 ```python
-#!/usr/bin/env python
-import os
-from datetime import date, datetime
 from flight_tracer import FlightTracer
-import geopandas as gpd
+from datetime import date
 
-# 1. Use a specific AWS profile from your environment 
-# If you have multiple AWS accounts
-aws_profile = os.getenv("MY_PERSONAL_PROFILE")
+# Initialize the FlightTracer with an aircraft ID
+tracer = FlightTracer(aircraft_ids=["A11F59"])
 
-# 2. Use standard AWS credentials from your environment
-aws_creds = {
-    "aws_access_key_id": os.getenv("MY_AWS_ACCESS_KEY_ID"),
-    "aws_secret_access_key": os.getenv("MY_AWS_SECRET_ACCESS_KEY")
-}
+# Define the date range for fetching trace data
+start = date(2025, 2, 7)
+end = date(2025, 2, 8)
 
-# You can pass either aws_profile or aws_creds.
-# For example, to use the AWS profile:
-tracer = FlightTracer(aircraft_ids=["a2644a"], aws_profile=aws_profile)
-
-# Or, if you prefer using credentials alone, comment the above line and use:
-# tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
-
-# Define the date range for which you want to fetch trace data
-start = date(2025, 2, 4)
-end = date(2025, 2, 4)
-
-# Fetch raw flight trace data from ADSBExchange
-print("Fetching raw flight trace data...")
+# Fetch flight data
 raw_df = tracer.get_traces(start, end)
-if raw_df.empty:
-    print("No trace data was fetched.")
-else:
-    print("Raw data sample:")
-    print(raw_df.head())
 
-    # Process the raw data to compute a continuous 'ping_time' (UTC)
-    # and to infer flight legs based on time gaps.
-    print("\nProcessing flight data into a GeoDataFrame...")
+# Process the raw data into a GeoDataFrame
+if not raw_df.empty:
     gdf = tracer.process_flight_data(raw_df)
-
-    # Optionally, retain ground points: 
-    # gdf = tracer.process_flight_data(raw_df, filter_ground=False)
-
-    print("Processed GeoDataFrame sample:")
     print(gdf.head())
-    
-    # Optionally, inspect the unique flight legs detected in the data
-    print("\nUnique flight legs detected:")
-    print(gdf["leg_id"].unique())
-
-    # Build dynamic filenames that include the ICAO code(s) and today's date
-    icao_str = "_".join(tracer.aircraft_ids)
-    date_str = datetime.today().strftime("%Y%m%d")
-    csv_filename = f"data/flight_traces_{icao_str}_{date_str}.csv"
-    geojson_filename = f"data/flight_traces_{icao_str}_{date_str}.geojson"
-    linestring_geojson_filename = f"data/flight_traces_lines_{icao_str}_{date_str}.geojson"
-
-    # Save the processed data locally as CSV and GeoJSON
-    gdf.to_csv(csv_filename, index=False)
-    gdf.to_file(geojson_filename, driver="GeoJSON")
-    print(f"\nSaved processed data locally as '{csv_filename}' and '{geojson_filename}'.")
-
-    # Export linestring geometry for each flight leg
-    tracer.export_linestring_geojson(gdf, linestring_geojson_filename)
-
-    # Optionally upload the processed files to S3
-    bucket_name = "stilesdata.com"  # replace with your bucket name
-    csv_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.csv"
-    geojson_object_name = f"flight_tracer/flight_traces_{icao_str}_{date_str}.geojson"
-    print("\nUploading files to S3 (if AWS credentials are configured)...")
-    tracer.upload_to_s3(gdf, bucket_name, csv_object_name, geojson_object_name)
-    print("Upload process completed.")
-
-    # Plot the points with a basemap and optionally save the plot as a PNG
-    fig_filename = f"visuals/flight_map_{icao_str}_{date_str}.png"
-    tracer.plot_flights(gdf, geometry_type='points', figsize=(12,10), fig_filename=fig_filename)
 ```
 
-### **Using AWS S3 for storage**
-If you want to **upload processed flight data** to AWS S3, provide your AWS credentials:
+---
 
+### **Customizing output**
+
+FlightTracer provides options to save data in different formats and configure the output directory:
+
+#### **Supported file formats**
+- CSV
+- GeoJSON
+- Esri shapefile
+
+#### **Example: Exporting data**
+```python
+# Save processed data locally
+tracer.export_flight_data(gdf, base_path="data/flight_traces", export_format="geojson") # or "shp"
+```
+
+---
+
+### **Filtering ground data**
+
+By default, FlightTracer filters out points where the aircraft is on the ground. This can be customized using the `filter_ground` parameter:
+
+#### **Example: Retaining ground data**
+```python
+gdf = tracer.process_flight_data(raw_df, filter_ground=False)
+```
+
+---
+
+### **Handling flight legs**
+
+Flight legs are inferred based on significant time gaps or changes in the aircraft's `call_sign`. The package handles Zulu day transitions to avoid splitting continuous flights.
+
+#### **Example: Inspecting flight legs**
+```python
+print(gdf["flight_leg"].unique())
+```
+
+---
+
+### **Custom basemap visualizations**
+
+FlightTracer allows you to plot flight paths with clear leg differentiation and optional basemap configurations.
+
+#### **Example: Plotting flight paths**
+```python
+# Plot points with a basemap
+tracer.plot_flights(gdf, geometry_type='points', figsize=(12, 8), fig_filename="flight_map.png")
+```
+
+---
+
+### **AWS S3 integration**
+
+Easily upload processed data to AWS S3 for cloud storage. Provide your AWS credentials or use an AWS profile:
+
+#### **Example: Uploading to S3**
 ```python
 aws_creds = {
     "aws_access_key_id": "your-access-key",
     "aws_secret_access_key": "your-secret-key"
 }
 
-tracer = FlightTracer(aircraft_ids=["a97753"], aws_creds=aws_creds)
+tracer.upload_to_s3(
+    gdf,
+    bucket_name="your-bucket",
+    csv_object_name="flight_data.csv",
+    geojson_object_name="flight_data.geojson"
+)
+```
 
-# Upload to S3
-tracer.upload_to_s3(gdf, bucket_name="your-bucket",
-                     csv_object_name="flight_data.csv",
-                     geojson_object_name="flight_data.geojson")
+---
+
+## **Advanced features**
+
+### **Metadata mapping**
+Enrich your flight data with custom metadata using mapping options.
+
+#### **Example: Adding metadata**
+```python
+meta_df = pd.DataFrame({
+    "flight": ["AAL124", "UAL1053"],
+    "airline": ["American Airlines", "United Airlines"]
+})
+mapping_info = (meta_df, "flight", "airline", "airline")
+
+# Pass mapping_info to process_flight_data
+gdf = tracer.process_flight_data(raw_df, mapping_info=mapping_info)
+```
+
+### **Custom time thresholds for legs**
+Customize the time gap threshold for detecting new flight legs:
+
+#### **Example: Adjusting time gap threshold**
+```python
+tracer.set_time_gap_threshold(minutes=45)
 ```
 
 ---
@@ -153,58 +183,57 @@ The example above would output two GeoJSON files: One with point features for ea
 
 ```json
 "features": [
-        {
-            "type": "Feature",
-            "properties": {
-                "flight": "SKW4012",
-                "point_time": "2025-02-04T00:00:39.650",
-                "flight_date_pst": "2025-02-03",
-                "point_time_pst_clean": "16:00:39",
-                "altitude": "18025",
-                "ground_speed": 365.5,
-                "heading": 144.4,
-                "lat": 40.114529,
-                "lon": -111.811419,
-                "icao": "a2644a",
-                "call_sign": "SKW4012",
-                "leg_id": 1,
-                "flight_leg": "SKW4012_2025-02-03_leg1"
-            },
-            "geometry": {
-                "type": "Point",
-                "coordinates": [
-                    -111.811419,
-                    40.114529
-                ]
-            }
+    {
+        "type": "Feature",
+        "properties": {
+            "point_time": "2025-02-08T02:38:02.920",
+            "flight_date_pst": "2025-02-07",
+            "altitude": "30000",
+            "ground_speed": 408.4,
+            "heading": 253.2,
+            "lat": 35.968307,
+            "lon": -97.348509,
+            "icao": "a11f59",
+            "call_sign": "UAL333",
+            "leg_id": 1,
+            "flight_leg": "UAL333_leg1"
+        },
+        "geometry": {
+            "type": "Point",
+            "coordinates": [
+                -97.348509,
+                35.968307
+            ]
         }
-    ]
+    }
+]
 ```
 
 **Notes:**
 
-- Values such as altitude and ground speed are raw and uncorrected. 
-- Use the `flight_leg` item to identify separate flights in a single calendar day. 
+- Values such as altitude and ground speed are raw and uncorrected
 - I live in Los Angeles so I convert the `point_time` value from UTC, or Zulu time, to Pacific Time. You can choose your own location.
-- This software is experimental and under active development so use with caution. 
 
-The plot has different colors for the various legs that day to help you identify them more clearly as you use the data for more advanced visualizations using QGIS or other tools. 
+The plot has different colors for the various legs that day to help you identify them more clearly as you use the data for more advanced visualizations using QGIS or other tools.
 
-![alt text](visuals/flight_map_a2644a_20250204.png)
+![alt text](visuals/flight_map_a11f59_20250208.png)
 
 ---
 
 ## **Roadmap**
-- **Data integrity**: Better testing and documentation (flight legs, datetime handling, etc.)
-- **Enhanced CLI tools**: Command-line interface for easy usage
-- **Metadata enrichment**: Integrate external aircraft metadata (FAA, ICAO, etc.)
-- **Advanced plotting**: More customizable visualizations
-- **Performance improvements**: Parallel processing for large datasets
+
+- **CLI option**: Add a command-line interface for easier usage
+- **Improved metadata integration**: Automatically enrich flight data with external sources (e.g., FAA, ICAO)
+- **Parallel processing**: Optimize for large datasets
+- **Better visualizations**: Add support for tools like Altair or Plotly
+- **Analysis tools**: Better understand a flight's speed and altitude changes
 
 ---
 
 ## **Credits**
-Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for the flight data. If you use the service, consider [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing](https://www.adsbexchange.com/ways-to-join-the-exchange/) data to its network. 
+Thanks to [ADS-B Exchange](https://globe.adsbexchange.com/) for providing open flight data. Please consider supporting their service by [subscribing](https://store.adsbexchange.com/collections/subscriptions) or [contributing data](https://www.adsbexchange.com/ways-to-join-the-exchange/).
+
+---
 
 ## **License**
 This project is licensed under the **Creative Commons CC0 1.0 Universal** Public Domain Dedication.

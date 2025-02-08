@@ -12,6 +12,9 @@ import contextily as ctx
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, message="Column names longer than 10 characters")
+
 class FlightTracer:
     # Default columns from the ADSB trace data (we’ll drop the extra ones)
     DEFAULT_COLUMNS = [
@@ -146,107 +149,192 @@ class FlightTracer:
 
 
 
-    def process_flight_data(self, df, mapping_info=None, filter_ground=True):
+    def process_flight_data(self, df, mapping_info=None, filter_ground=True, threshold_seconds=3600):
         """
         Process the raw trace data:
-        - Compute point_time (UTC) and convert to US/Pacific.
-        - Detect flight leg changes by looking at time gaps.
+        - Compute point_time (UTC) and detect flight leg changes.
         - Normalize JSON details into columns.
-        - Optionally map a flight column to additional info (like owner).
+        - Optionally map a flight column to additional metadata.
         - Create a combined flight_leg column.
-        - Optionally filter out ground-level data.
-        - Return a GeoDataFrame.
 
         Parameters:
         df (DataFrame): Raw flight trace data.
-        mapping_info (tuple or None): If provided, maps flight details to additional metadata.
-        filter_ground (bool): If True (default), removes rows where altitude is "ground".
+        mapping_info (tuple or None): Optional mapping for additional metadata.
+        filter_ground (bool): If True, removes rows with altitude="ground".
+        threshold_seconds (int): Time gap threshold in seconds for detecting new legs (default: 3600).
 
         Returns:
-        GeoDataFrame: Processed flight data with spatial points.
+        GeoDataFrame: Processed flight data.
         """
-        # First sort and compute the continuous ping time
-        df = df.sort_values(['timestamp', 'time'])
+        df = df.sort_values(['icao', 'timestamp', 'time'])
+
+        # Compute continuous ping times in UTC
         df["point_time"] = df["timestamp"] + pd.to_timedelta(df["time"], unit="s")
         df["timestamp_pst"] = df["point_time"].dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
-        df["point_time_pst_clean"] = df["timestamp_pst"].dt.strftime("%H:%M:%S")
         df["flight_date_pst"] = df["timestamp_pst"].dt.strftime("%Y-%m-%d")
-        
-        # --- Begin leg detection ---
-        df = df.sort_values(['icao', 'point_time'])
-        df['time_diff'] = df.groupby(['icao', 'flight_date_pst'])['point_time'].diff()
-        threshold = pd.Timedelta(minutes=15)
-        df['new_leg'] = (df['time_diff'] > threshold).fillna(0).astype(int)
-        df['leg_id'] = df.groupby(['icao', 'flight_date_pst'])['new_leg'].cumsum() + 1
-        # --- End leg detection ---
-        
-        # Extract the call sign from the 'details' column and fill forward missing values
-        df["call_sign"] = pd.json_normalize(df['details'])['flight'].str.strip()
-        df["call_sign"] = df["call_sign"].ffill()
-        
-        # Create a combined flight_leg field: call_sign + "_" + flight_date_pst + "_leg" + leg_id
-        df["flight_leg"] = df["call_sign"] + "_" + df["flight_date_pst"] + "_leg" + df["leg_id"].astype(str)
-        
-        # Flatten the 'details' JSON column (drop alt_geom if present)
-        details_df = pd.json_normalize(df["details"]).drop(columns=["alt_geom"], errors='ignore')
-        df = df.join(details_df)
-        
-        # Optionally apply a mapping (e.g. flight -> owner) if mapping_info is provided
-        if mapping_info and "flight" in df.columns:
-            meta_df, key_col, value_col, target_col = mapping_info
-            mapping = meta_df.set_index(key_col)[value_col].to_dict()
-            df[target_col] = df["flight"].map(mapping)
-        
-        # Select a common set of columns, explicitly including point_time for later sorting.
-        cols = ["point_time", "flight_date_pst", "point_time_pst_clean", "altitude",
-                "ground_speed", "heading", "lat", "lon", "icao", "call_sign", "leg_id", "flight_leg"]
-        if mapping_info:
-            cols.append(target_col)
 
-        # Apply altitude filter based on user preference
+        # Normalize 'details' column into separate DataFrame if it exists
+        if "details" in df.columns:
+            details_df = pd.json_normalize(df["details"], errors="ignore")
+            if "flight" in details_df.columns:
+                df["call_sign"] = details_df["flight"].str.strip().ffill().fillna("UNKNOWN")
+            else:
+                df["call_sign"] = "UNKNOWN"
+            overlapping_cols = details_df.columns.intersection(df.columns).tolist()
+            details_df = details_df.drop(columns=overlapping_cols, errors="ignore")
+            df = df.drop(columns=["details"]).join(details_df, how="left")
+        else:
+            # Fallback if 'details' column doesn't exist
+            df["call_sign"] = "UNKNOWN"
+
+        # Detect time gaps
+        df["time_diff"] = df.groupby(["icao", "call_sign"])["point_time"].diff().dt.total_seconds()
+
+        # Detect new legs (ignore Zulu day boundaries for continuous flights)
+        df["new_leg"] = (
+            (df["time_diff"] > threshold_seconds)  # Large time gap
+        ).astype(int)
+
+        # Assign leg_id for each unique flight
+        df["leg_id"] = df.groupby(["icao", "call_sign"])["new_leg"].cumsum() + 1
+
+        # Create combined flight_leg column
+        df["flight_leg"] = (
+            df["call_sign"].fillna("UNKNOWN") +
+            "_leg" + df["leg_id"].astype(str)
+        )
+
+        # Filter out ground data if required
         if filter_ground:
             df = df.query('altitude != "ground"').copy()
-        
-        # Create and return a GeoDataFrame with points from lon/lat
-        return gpd.GeoDataFrame(df[cols], geometry=gpd.points_from_xy(df.lon, df.lat))
+
+        # Define output columns
+        output_columns = [
+            "point_time", "flight_date_pst", "altitude", "ground_speed",
+            "heading", "lat", "lon", "icao", "call_sign", "leg_id", "flight_leg"
+        ]
+
+        return gpd.GeoDataFrame(
+            df[output_columns],
+            geometry=gpd.points_from_xy(df.lon, df.lat)
+        )
 
 
-    def export_linestring_geojson(self, gdf, output_file):
+    
+    def create_linestrings(self, gdf, flight_leg_column="flight_leg", point_time_column="point_time"):
         """
-        Given a GeoDataFrame of flight trace points (which includes a 'flight_leg'
-        and a continuous 'point_time' column), group the data by flight_leg,
-        create a LineString for each leg, and export the result as a GeoJSON file.
-        
+        Given a GeoDataFrame of flight trace points, group the data by flight_leg,
+        create a LineString for each leg, and return a new GeoDataFrame.
+
         Parameters:
         gdf (GeoDataFrame): The GeoDataFrame of flight points.
-        output_file (str): Path to the output GeoJSON file.
-        """
-        legs = []
-        # Group by the unique flight_leg identifier
-        for flight_leg, group in gdf.groupby("flight_leg"):
-            # Sort the group by point_time so the points are in order
-            group = group.sort_values("point_time")
-            points = list(group.geometry)
-            # If more than one point, create a LineString; otherwise, use the single point.
-            if len(points) > 1:
-                geometry = LineString(points)
-            else:
-                geometry = points[0]
-            # Capture representative attributes from the first row.
-            legs.append({
-                "flight_leg": flight_leg,
-                "icao": group["icao"].iloc[0],
-                "call_sign": group["call_sign"].iloc[0],
-                "flight_date_pst": group["flight_date_pst"].iloc[0],
-                "leg_id": group["leg_id"].iloc[0],
-                "geometry": geometry
-            })
-        
-        gdf_lines = gpd.GeoDataFrame(legs, crs=gdf.crs)
-        gdf_lines.to_file(output_file, driver="GeoJSON")
-        print(f"Linestring GeoJSON exported to {output_file}")
+        flight_leg_column (str): The name of the flight leg column (default: "flight_leg").
+        point_time_column (str): The name of the time column (default: "point_time").
 
-        
+        Returns:
+        GeoDataFrame: Processed flight leg lines.
+        """
+        if flight_leg_column not in gdf.columns:
+            raise KeyError(f"Expected column '{flight_leg_column}' not found in DataFrame.")
+
+        if point_time_column not in gdf.columns:
+            raise KeyError(f"Expected column '{point_time_column}' not found in DataFrame.")
+
+        legs = []
+        for flight_leg, group in gdf.groupby(flight_leg_column):
+            group = group.sort_values(point_time_column)  # Ensure chronological order
+            points = list(group.geometry)
+            geometry = LineString(points) if len(points) > 1 else points[0]
+
+            # Handle missing columns
+            row_data = {
+                flight_leg_column: flight_leg,
+                "icao": group["icao"].iloc[0] if "icao" in group.columns else None,
+                "call_sign": group["call_sign"].iloc[0] if "call_sign" in group.columns else None,
+                "flight_date_pst": group["flight_date_pst"].iloc[0] if "flight_date_pst" in group.columns else None,
+                "leg_id": group["leg_id"].iloc[0] if "leg_id" in group.columns else None,
+                "geometry": geometry
+            }
+
+            legs.append(row_data)
+
+        gdf_lines = gpd.GeoDataFrame(legs, crs=gdf.crs)
+        return gdf_lines
+
+
+
+
+
+
+    def export_flight_data(self, gdf, base_path, export_format="geojson"):
+        """
+        Export flight data as GeoJSON or Shapefile.
+
+        Parameters:
+        gdf (GeoDataFrame): The GeoDataFrame of flight points.
+        base_path (str): The base path for saving the files.
+        export_format (str): Either "geojson" (default) or "shp".
+        """
+        if export_format == "geojson":
+            point_file = f"{base_path}_points.geojson"
+            line_file = f"{base_path}_lines.geojson"
+            gdf.to_file(point_file, driver="GeoJSON")
+            print(f"GeoJSON exported: {point_file}")
+
+            gdf_lines = self.create_linestrings(gdf, flight_leg_column="flight_leg")
+            gdf_lines.to_file(line_file, driver="GeoJSON")
+            print(f"GeoJSON exported: {line_file}")
+
+        elif export_format == "shp":
+            shp_dir = f"{base_path}_shp"
+            os.makedirs(shp_dir, exist_ok=True)
+
+            point_file = f"{shp_dir}/flight_traces_points.shp"
+            line_file = f"{shp_dir}/flight_traces_lines.shp"
+
+            # Define a column renaming map for Shapefile (ensuring `point_time` is included)
+            shapefile_col_map = {
+                "flight_leg": "fl_leg",
+                "point_time": "pt_time",
+                "timestamp_pst": "tm_pst",
+                "flight_date_pst": "fl_date",
+                "ground_speed": "gr_speed",
+                "icao": "icao",
+                "call_sign": "c_sign",
+                "altitude": "alt",
+                "heading": "head",
+                "lat": "lat",
+                "lon": "lon",
+                "leg_id": "leg_id"
+            }
+
+            # Rename columns only if they exist
+            gdf = gdf.rename(columns={k: v for k, v in shapefile_col_map.items() if k in gdf.columns})
+
+            # Convert datetime columns to strings (Shapefile doesn't support datetime)
+            datetime_cols = ["pt_time", "tm_pst", "fl_date"]
+            for col in datetime_cols:
+                if col in gdf.columns:
+                    gdf[col] = gdf[col].astype(str)
+
+            gdf.to_file(point_file, driver="ESRI Shapefile")
+            print(f"Shapefile exported: {point_file}")
+
+            # Use the correct column name for grouping in create_linestrings()
+            flight_leg_column = "flight_leg" if "flight_leg" in gdf.columns else "fl_leg"
+            point_time_column = "point_time" if "point_time" in gdf.columns else "pt_time"
+
+            # Process LineStrings using the correct column
+            gdf_lines = self.create_linestrings(gdf, flight_leg_column, point_time_column)
+            gdf_lines.to_file(line_file, driver="ESRI Shapefile")
+            print(f"Shapefile exported: {line_file}")
+
+        else:
+            raise ValueError("Unsupported export format. Use 'geojson' or 'shp'.")
+
+
+
+
 
     def plot_flights(self, gdf, geometry_type='points', figsize=(10,10), pad_factor=0.2, zoom=None, fig_filename=None):
         """
