@@ -1,12 +1,13 @@
 import click
 import os
+import pandas as pd
 import geopandas as gpd
 from datetime import date
 from flight_tracer import FlightTracer
 
 @click.group()
 def cli():
-    """FlightTracer: Fetch, process, and analyze ADS-B Exchange flight data."""
+    """FlightTracer: Fetch, process, store and plot ADS-B Exchange flight data."""
     pass
 
 @click.command()
@@ -24,7 +25,7 @@ def fetch(icao, start, end, output):
         return
     
     os.makedirs(output, exist_ok=True)
-    filename = f"{output}/raw_{icao}_{start.date()}_{end.date()}.csv"
+    filename = os.path.join(output, f"raw_{icao}_{start.date()}_{end.date()}.csv")
     raw_df.to_csv(filename, index=False)
     click.echo(f"Saved raw data to {filename}")
 
@@ -33,13 +34,17 @@ def fetch(icao, start, end, output):
 @click.option('--filter-ground', is_flag=True, help='Exclude ground data from processing')
 def process(input, filter_ground):
     """Process raw flight data into structured GeoDataFrame."""
-    raw_df = gpd.read_file(input)
-    tracer = FlightTracer()
-    gdf = tracer.process_flight_data(raw_df, filter_ground=filter_ground)
+    raw_df = pd.read_csv(input)
+    if raw_df.empty or "icao" not in raw_df.columns:
+        click.echo("Error: Invalid flight data. Ensure the CSV contains valid flight traces.")
+        return
     
-    processed_filename = input.replace("raw_", "processed_")
+    gdf = FlightTracer.process_flight_data(None, raw_df, filter_ground=filter_ground)
+
+    processed_filename = input.replace("raw_", "processed_").replace(".csv", ".geojson")
     gdf.to_file(processed_filename, driver="GeoJSON")
     click.echo(f"Processed data saved as {processed_filename}")
+
 
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to processed flight data')
@@ -50,34 +55,61 @@ def export(input, format):
     base_path = input.replace("processed_", "exported_").rsplit('.', 1)[0]
     
     if format == 'csv':
-        gdf.to_csv(f"{base_path}.csv", index=False)
+        output_file = f"{base_path}.csv"
+        gdf.drop(columns='geometry', errors='ignore').to_csv(output_file, index=False)
     elif format == 'geojson':
-        gdf.to_file(f"{base_path}.geojson", driver="GeoJSON")
+        output_file = f"{base_path}.geojson"
+        gdf.to_file(output_file, driver="GeoJSON")
     elif format == 'shp':
-        gdf.to_file(f"{base_path}.shp", driver="ESRI Shapefile")
+        output_file = f"{base_path}.shp"
+        gdf["point_time"] = gdf["point_time"].dt.date
+        gdf["flight_date_pst"] = gdf["flight_date_pst"].dt.date
+        gdf = gdf.rename(columns={"flight_date_pst": "fl_dt_pst", "ground_speed": "speed"})
+        gdf.to_file(output_file, driver="ESRI Shapefile")
     
-    click.echo(f"Exported data as {base_path}.{format}")
+    click.echo(f"Exported data as {output_file}")
 
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to processed flight data')
 @click.option('--bucket', required=True, help='AWS S3 bucket name')
-def upload(input, bucket):
-    """Upload processed data to AWS S3."""
-    tracer = FlightTracer()
+@click.option('--aws-profile', default=None, help='AWS profile name for authentication')
+def upload(input, bucket, aws_profile):
+    """Upload processed data to AWS S3 with an optional AWS profile."""
+    gdf = gpd.read_file(input)  # Load processed GeoDataFrame
     file_name = os.path.basename(input)
-    tracer.upload_to_s3(gpd.read_file(input), bucket, f"flight_tracer/{file_name}", f"flight_tracer/{file_name}.geojson")
-    click.echo(f"Uploaded {file_name} to S3 bucket {bucket}")
+
+    from flight_tracer.core import FlightTracer  # Import inside function
+
+    # Instead of requiring aircraft_ids, initialize for S3 only
+    tracer = FlightTracer(aircraft_ids=["dummy"], aws_profile=aws_profile)  # Pass a dummy value
+
+    if tracer.s3_client is None:
+        click.echo("Error: AWS S3 client not initialized. Check your credentials or profile.")
+        return
+
+    tracer.upload_to_s3(gdf, bucket, f"flight_tracer/{file_name}", f"flight_tracer/{file_name}.geojson")
+
+    click.echo(f"Uploaded {file_name} to S3 bucket {bucket} (AWS profile: {aws_profile if aws_profile else 'default'})")
+
+
+
 
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to processed flight data')
 @click.option('--output', required=True, type=click.Path(), help='Output image file for the plot')
 def plot(input, output):
     """Plot flight paths with a basemap."""
-    gdf = gpd.read_file(input)
-    tracer = FlightTracer()
-    tracer.plot_flights(gdf, geometry_type='points', fig_filename=output)
+    gdf = gpd.read_file(input)  # Load processed data
+
+    from flight_tracer.core import FlightTracer  # Import inside function
+    FlightTracer.plot_flights(None, gdf, geometry_type='points', fig_filename=output)
+
     click.echo(f"Saved flight map as {output}")
 
+
+
+
+# Register commands
 cli.add_command(fetch)
 cli.add_command(process)
 cli.add_command(export)

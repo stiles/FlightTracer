@@ -6,7 +6,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="flight-tracer",
-    version="0.1.4",
+    version="0.1.5",
     author="Matt Stiles",
     author_email="mattstiles@gmail.com",
     description="A package to fetch, process, store and plot aircraft trace data from ADS-B Exchange",
@@ -30,4 +30,9 @@ setup(
     ],
     license="CC0-1.0",
     python_requires=">=3.7",
+    entry_points={
+    "console_scripts": [
+        "flight-tracer=flight_tracer.cli:cli",
+    ],
+},
 )

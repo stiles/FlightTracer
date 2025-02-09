@@ -41,6 +41,7 @@ class FlightTracer:
             self.meta_df = None
         else:
             raise ValueError("Either aircraft_ids or meta_url must be provided")
+        
 
         # Set up S3 client using aws_profile if provided, else explicit credentials if provided
         if aws_profile:
@@ -169,6 +170,14 @@ class FlightTracer:
         df = df.sort_values(['icao', 'timestamp', 'time'])
 
         # Compute continuous ping times in UTC
+        # Ensure 'time' is a numeric type
+        df["time"] = pd.to_numeric(df["time"], errors="coerce")
+        df = df.dropna(subset=["time"])  # Remove rows where 'time' could not be converted
+
+        # Ensure 'timestamp' is in datetime format
+        df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
+
+        # Now perform the addition
         df["point_time"] = df["timestamp"] + pd.to_timedelta(df["time"], unit="s")
         df["timestamp_pst"] = df["point_time"].dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
         df["flight_date_pst"] = df["timestamp_pst"].dt.strftime("%Y-%m-%d")
@@ -206,7 +215,7 @@ class FlightTracer:
 
         # Filter out ground data if required
         if filter_ground:
-            df = df.query('altitude != "ground"').copy()
+            df = df[df["altitude"] != "ground"]
 
         # Define output columns
         output_columns = [
@@ -217,7 +226,7 @@ class FlightTracer:
         return gpd.GeoDataFrame(
             df[output_columns],
             geometry=gpd.points_from_xy(df.lon, df.lat)
-        )
+        ).set_crs(epsg=4326)
 
 
     
@@ -405,15 +414,19 @@ class FlightTracer:
         gdf.to_csv(csv_buffer, index=False)
         csv_buffer.seek(0)
         self.s3_client.put_object(Bucket=bucket_name, Key=csv_object_name, Body=csv_buffer.getvalue())
-        print(f"CSV uploaded to s3://{bucket_name}/{csv_object_name}")
+        print(f"✅ CSV uploaded to s3://{bucket_name}/{csv_object_name}")
         
-        # Remove non-serializable columns (e.g., 'point_time') before exporting to GeoJSON.
-        # Alternatively, you could convert it to a string using .astype(str)
-        gdf_json = gdf.drop(columns=["point_time"], errors="ignore")
+        # Convert timestamp columns to ISO 8601 strings for JSON serialization
+        gdf_json = gdf.copy()
+        for col in gdf_json.select_dtypes(include=["datetime64"]).columns:
+            gdf_json[col] = gdf_json[col].dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+        # Drop non-serializable columns before exporting to GeoJSON
         geojson_str = gdf_json.to_json()
+        
         self.s3_client.put_object(
             Bucket=bucket_name, 
             Key=geojson_object_name, 
             Body=geojson_str.encode('utf-8')
         )
-        print(f"GeoJSON uploaded to s3://{bucket_name}/{geojson_object_name}")
+        print(f"✅ GeoJSON uploaded to s3://{bucket_name}/{geojson_object_name}")

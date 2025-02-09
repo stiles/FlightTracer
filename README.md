@@ -1,11 +1,9 @@
 # FlightTracer: Tracking ADS-B Exchange flights
 
-# FlightTracer: Tracking ADS-B Exchange flights
-
 [![PyPI version](https://img.shields.io/pypi/v/flight-tracer.svg)](https://pypi.org/project/flight-tracer/)
 [![License: CC0-1.0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
 
-**FlightTracer** is a Python package for fetching, processing, storing and plotting flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/). It provides tools for managing flight data and offers flexible options for users. The project is new and under active development.
+FlightTracer is a Python package for fetching, processing, storing and plotting flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/). It provides tools for managing flight data and offers flexible options for users. The project is new and under development.
 
 ---
 
@@ -24,7 +22,7 @@
 
 ## Installation
 
-FlightTracer is available on **PyPI** and can be installed using:
+FlightTracer is available on PyPI and can be installed using:
 
 ```bash
 pip install flight-tracer
@@ -88,10 +86,10 @@ flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --format geojson
 flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --plot
 ```
 
-### **Example: Upload results to AWS S3**
+### **Example: Upload results to AWS S3 (w/ option to specify profile)**
 
 ```bash
-flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --upload --bucket my-bucket
+flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --upload --bucket my-bucket --aws-profile my-profile
 ```
 
 ---
@@ -156,7 +154,7 @@ tracer.export_flight_data(gdf, base_path="data/flight_traces", export_format="ge
 - Visualizes flight paths with customizable basemaps and clear leg differentiation
 - Supports AWS S3 uploads for cloud storage
 - Offers customization options for file formats and filtering
-- **Now includes a command-line interface (CLI) for easy execution**
+- **Now includes a command-line interface for easy execution**
 
 ---
 
