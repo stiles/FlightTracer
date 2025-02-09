@@ -21,7 +21,8 @@ setup(
         "boto3",
         "matplotlib",
         "contextily",
-        "shapely"
+        "shapely",
+        "click"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
