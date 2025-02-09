@@ -6,10 +6,10 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="flight-tracer",
-    version="0.1.3",
+    version="0.1.4",
     author="Matt Stiles",
     author_email="mattstiles@gmail.com",
-    description="A package to fetch, process, store, and plot aircraft trace data from ADS-B Exchange.",
+    description="A package to fetch, process, store and plot aircraft trace data from ADS-B Exchange",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/stiles/flight-tracer",
