@@ -129,36 +129,6 @@ if not raw_df.empty:
     print(gdf.head())
 ```
 
----
-
----
-
-## Using FlightTracer in Python
-
-FlightTracer can also be used as a Python library for more flexibility.
-
-### **Basic example**
-
-```python
-from flight_tracer import FlightTracer
-from datetime import date
-
-# Initialize the FlightTracer with an aircraft ID
-tracer = FlightTracer(aircraft_ids=["A11F59"])
-
-# Define the date range for fetching trace data
-start = date(2025, 2, 7)
-end = date(2025, 2, 8)
-
-# Fetch flight data
-raw_df = tracer.get_traces(start, end)
-
-# Process the raw data into a GeoDataFrame
-if not raw_df.empty:
-    gdf = tracer.process_flight_data(raw_df)
-    print(gdf.head())
-```
-
 ### **Converting to a Specific Time Zone**
 By default, ADS-B times are in UTC. Users can convert `point_time` to their local time zone as needed:
 
