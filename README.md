@@ -54,43 +54,52 @@ These dependencies will be installed automatically with `pip`.
 
 With the new CLI support, FlightTracer can be run directly from the command line.
 
-### **Basic command**
-
-```bash
-flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --format csv
-```
-
-This fetches flight data for aircraft `A11F59` for the given date range and saves it as a CSV file.
-
-### **CLI options**
+### **CLI options overview**
 
 | Option            | Description |
 |------------------|-------------|
 | `--icao`         | ICAO aircraft ID (required, can be multiple) |
 | `--start`        | Start date (YYYY-MM-DD) |
 | `--end`          | End date (YYYY-MM-DD) |
+| `--output`       | Directory for saving fetched data |
+| `--input`        | Path to input file for processing/exporting/uploading |
 | `--format`       | Output format: `csv`, `geojson`, `shp` |
 | `--filter-ground` | Filter out ground-level points (default: True) |
-| `--upload`       | Upload to S3 (requires credentials) |
 | `--plot`         | Generate a visualization of the flight trace |
+| `--bucket`       | AWS S3 bucket name for uploads |
+| `--aws-profile`  | AWS profile for authentication when uploading |
 
-### **Example: Fetch, process, and export as GeoJSON**
+These commands ensure seamless of FlightTracer's features via the command line.
 
+### **Basic command: Fetch raw flight trace data**
 ```bash
-flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --format geojson
+flight-tracer fetch --icao A11F59 --start 2025-02-07 --end 2025-02-08 --output data/
 ```
+This fetches flight data for aircraft `A11F59` for the given date range and saves it as a CSV file.
 
-### **Example: Fetch and plot flight trace**
-
+### **Processing fetched data**
 ```bash
-flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --plot
+flight-tracer process --input data/raw_A11F59_2025-02-07_2025-02-08.csv --filter-ground
 ```
+This processes the fetched flight trace data, filtering out ground-level points and saving the result in a structured format.
 
-### **Example: Upload results to AWS S3 (w/ option to specify profile)**
-
+### **Exporting processed data**
 ```bash
-flight-tracer --icao A11F59 --start 2025-02-07 --end 2025-02-08 --upload --bucket my-bucket --aws-profile my-profile
+flight-tracer export --input data/processed_A11F59_2025-02-07_2025-02-08.geojson --format geojson
 ```
+This exports the processed flight data in GeoJSON format (CSV and shapefile options are also available).
+
+### **Plotting the flight trace**
+```bash
+flight-tracer plot --input data/processed_A11F59_2025-02-07_2025-02-08.geojson --output visuals/flight_map_A11F59_2025-02-07_2025-02-08.png
+```
+This generates a visualization of the flight trace and saves it as an image file.
+
+### **Uploading processed data to AWS S3**
+```bash
+flight-tracer upload --input data/processed_A11F59_2025-02-07_2025-02-08.geojson --bucket my-bucket --aws-profile my-profile
+```
+This uploads the processed flight trace data to the specified AWS S3 bucket using the provided AWS profile.
 
 ---
 
