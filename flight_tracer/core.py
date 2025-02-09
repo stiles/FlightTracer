@@ -4,6 +4,7 @@ import pandas as pd
 import geopandas as gpd
 import boto3
 import os
+import pytz
 from datetime import date, timedelta
 from io import BytesIO
 from shapely.geometry import LineString
@@ -150,39 +151,20 @@ class FlightTracer:
 
 
 
-    def process_flight_data(self, df, mapping_info=None, filter_ground=True, threshold_seconds=3600):
-        """
-        Process the raw trace data:
-        - Compute point_time (UTC) and detect flight leg changes.
-        - Normalize JSON details into columns.
-        - Optionally map a flight column to additional metadata.
-        - Create a combined flight_leg column.
-
-        Parameters:
-        df (DataFrame): Raw flight trace data.
-        mapping_info (tuple or None): Optional mapping for additional metadata.
-        filter_ground (bool): If True, removes rows with altitude="ground".
-        threshold_seconds (int): Time gap threshold in seconds for detecting new legs (default: 3600).
-
-        Returns:
-        GeoDataFrame: Processed flight data.
-        """
+    def process_flight_data(self, df, mapping_info=None, filter_ground=True, threshold_seconds=3600, timezone=None):
         df = df.sort_values(['icao', 'timestamp', 'time'])
-
-        # Compute continuous ping times in UTC
-        # Ensure 'time' is a numeric type
         df["time"] = pd.to_numeric(df["time"], errors="coerce")
-        df = df.dropna(subset=["time"])  # Remove rows where 'time' could not be converted
-
-        # Ensure 'timestamp' is in datetime format
+        df = df.dropna(subset=["time"])
         df["timestamp"] = pd.to_datetime(df["timestamp"], errors="coerce")
-
-        # Now perform the addition
         df["point_time"] = df["timestamp"] + pd.to_timedelta(df["time"], unit="s")
-        df["timestamp_pst"] = df["point_time"].dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
-        df["flight_date_pst"] = df["timestamp_pst"].dt.strftime("%Y-%m-%d")
-
-        # Normalize 'details' column into separate DataFrame if it exists
+        
+        if timezone:
+            try:
+                tz = pytz.timezone(timezone)
+                df["point_time_local"] = df["point_time"].dt.tz_localize("UTC").dt.tz_convert(tz)
+            except Exception as e:
+                raise ValueError(f"Invalid timezone specified: {e}")
+        
         if "details" in df.columns:
             details_df = pd.json_normalize(df["details"], errors="ignore")
             if "flight" in details_df.columns:
@@ -193,36 +175,23 @@ class FlightTracer:
             details_df = details_df.drop(columns=overlapping_cols, errors="ignore")
             df = df.drop(columns=["details"]).join(details_df, how="left")
         else:
-            # Fallback if 'details' column doesn't exist
             df["call_sign"] = "UNKNOWN"
 
-        # Detect time gaps
         df["time_diff"] = df.groupby(["icao", "call_sign"])["point_time"].diff().dt.total_seconds()
-
-        # Detect new legs (ignore Zulu day boundaries for continuous flights)
-        df["new_leg"] = (
-            (df["time_diff"] > threshold_seconds)  # Large time gap
-        ).astype(int)
-
-        # Assign leg_id for each unique flight
+        df["new_leg"] = (df["time_diff"] > threshold_seconds).astype(int)
         df["leg_id"] = df.groupby(["icao", "call_sign"])["new_leg"].cumsum() + 1
-
-        # Create combined flight_leg column
-        df["flight_leg"] = (
-            df["call_sign"].fillna("UNKNOWN") +
-            "_leg" + df["leg_id"].astype(str)
-        )
-
-        # Filter out ground data if required
+        df["flight_leg"] = df["call_sign"].fillna("UNKNOWN") + "_leg" + df["leg_id"].astype(str)
+        
         if filter_ground:
-            df = df[df["altitude"] != "ground"]
-
-        # Define output columns
+            df = df.query('altitude != "ground"').copy()
+        
         output_columns = [
-            "point_time", "flight_date_pst", "altitude", "ground_speed",
-            "heading", "lat", "lon", "icao", "call_sign", "leg_id", "flight_leg"
+            "point_time", "altitude", "ground_speed", "heading", "lat", "lon",
+            "icao", "call_sign", "leg_id", "flight_leg"
         ]
-
+        if "point_time_local" in df.columns:
+            output_columns.append("point_time_local")
+        
         return gpd.GeoDataFrame(
             df[output_columns],
             geometry=gpd.points_from_xy(df.lon, df.lat)
@@ -340,7 +309,6 @@ class FlightTracer:
 
         else:
             raise ValueError("Unsupported export format. Use 'geojson' or 'shp'.")
-
 
 
 

@@ -32,19 +32,19 @@ def fetch(icao, start, end, output):
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to raw flight data CSV')
 @click.option('--filter-ground', is_flag=True, help='Exclude ground data from processing')
-def process(input, filter_ground):
+@click.option('--timezone', default=None, help='Optional timezone for point_time conversion')
+def process(input, filter_ground, timezone):
     """Process raw flight data into structured GeoDataFrame."""
     raw_df = pd.read_csv(input)
     if raw_df.empty or "icao" not in raw_df.columns:
         click.echo("Error: Invalid flight data. Ensure the CSV contains valid flight traces.")
         return
     
-    gdf = FlightTracer.process_flight_data(None, raw_df, filter_ground=filter_ground)
+    gdf = FlightTracer.process_flight_data(None, raw_df, filter_ground=filter_ground, timezone=timezone)
 
     processed_filename = input.replace("raw_", "processed_").replace(".csv", ".geojson")
     gdf.to_file(processed_filename, driver="GeoJSON")
     click.echo(f"Processed data saved as {processed_filename}")
-
 
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to processed flight data')
@@ -62,9 +62,6 @@ def export(input, format):
         gdf.to_file(output_file, driver="GeoJSON")
     elif format == 'shp':
         output_file = f"{base_path}.shp"
-        gdf["point_time"] = gdf["point_time"].dt.date
-        gdf["flight_date_pst"] = gdf["flight_date_pst"].dt.date
-        gdf = gdf.rename(columns={"flight_date_pst": "fl_dt_pst", "ground_speed": "speed"})
         gdf.to_file(output_file, driver="ESRI Shapefile")
     
     click.echo(f"Exported data as {output_file}")
@@ -91,9 +88,6 @@ def upload(input, bucket, aws_profile):
 
     click.echo(f"Uploaded {file_name} to S3 bucket {bucket} (AWS profile: {aws_profile if aws_profile else 'default'})")
 
-
-
-
 @click.command()
 @click.option('--input', required=True, type=click.Path(exists=True), help='Path to processed flight data')
 @click.option('--output', required=True, type=click.Path(), help='Output image file for the plot')
@@ -105,9 +99,6 @@ def plot(input, output):
     FlightTracer.plot_flights(None, gdf, geometry_type='points', fig_filename=output)
 
     click.echo(f"Saved flight map as {output}")
-
-
-
 
 # Register commands
 cli.add_command(fetch)

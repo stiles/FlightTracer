@@ -131,6 +131,55 @@ if not raw_df.empty:
 
 ---
 
+---
+
+## Using FlightTracer in Python
+
+FlightTracer can also be used as a Python library for more flexibility.
+
+### **Basic example**
+
+```python
+from flight_tracer import FlightTracer
+from datetime import date
+
+# Initialize the FlightTracer with an aircraft ID
+tracer = FlightTracer(aircraft_ids=["A11F59"])
+
+# Define the date range for fetching trace data
+start = date(2025, 2, 7)
+end = date(2025, 2, 8)
+
+# Fetch flight data
+raw_df = tracer.get_traces(start, end)
+
+# Process the raw data into a GeoDataFrame
+if not raw_df.empty:
+    gdf = tracer.process_flight_data(raw_df)
+    print(gdf.head())
+```
+
+### **Converting to a Specific Time Zone**
+By default, ADS-B times are in UTC. Users can convert `point_time` to their local time zone as needed:
+
+```python
+import pytz
+
+# Convert to US/Pacific Time
+gdf["point_time_pacific"] = gdf["point_time"].dt.tz_localize("UTC").dt.tz_convert("US/Pacific")
+
+# Convert to Eastern Time
+gdf["point_time_eastern"] = gdf["point_time"].dt.tz_localize("UTC").dt.tz_convert("America/New_York")
+```
+
+To see all available time zones:
+```python
+import pytz
+print(pytz.all_timezones)
+```
+
+---
+
 ### Customizing output
 
 FlightTracer provides options to save data in different formats and configure the output directory:
@@ -230,7 +279,7 @@ The example above would output two GeoJSON files: One with point features for ea
 **Notes:**
 
 - Values such as altitude and ground speed are raw and uncorrected
-- I live in Los Angeles so I convert the `point_time` value from UTC, or Zulu time, to Pacific Time. You can choose your own location.
+- ADS-B datetimes are UTC, or Zulu, but FlightTracer users can concert that to a local time zone.
 
 The plot has different colors for the various legs that day to help you identify them more clearly as you use the data for more advanced visualizations using QGIS or other tools.
 
