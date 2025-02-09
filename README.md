@@ -9,7 +9,7 @@ FlightTracer is a Python package for fetching, processing, storing and plotting 
 
 ## Features
 
-- Fetches flight trace data from [ADS-B Exchange](https://globe.adsbexchange.com/)
+- Fetches flight trace data from ADS-B Exchange
 - Identifies flight legs by detecting time gaps and handling Zulu day transitions
 - Converts raw flight trace data into GeoDataFrames for easy analysis
 - Saves processed flight data in CSV, GeoJSON or shapefile formats
